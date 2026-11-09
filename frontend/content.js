@@ -49,7 +49,7 @@ window.PORTFOLIO = {
     "id" : 1,
     "title" : "Portfólio pessoal",
     "status" : "Em andamento",
-    "summary" : "Este site: projetos, currículo e contato com design system próprio.",
+    "summary" : "Aplicação web full-stack desenvolvida para centralizar a apresentação de projetos técnicos e experiências acadêmicas. Conta com um painel administrativo protegido por autenticação e persistência de dados integrada, unindo um frontend moderno a um backend robusto em Spring Boot.",
     "description" : "Front-end em React 19, TypeScript e Vite, com estilos em SCSS. Conteúdo gerenciado por esta API em Spring Boot.",
     "repoUrl" : "https://github.com/Wilbsomgs/Portifolio",
     "published" : true,
