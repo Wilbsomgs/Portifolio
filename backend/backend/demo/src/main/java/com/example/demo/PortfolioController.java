@@ -1,39 +1,25 @@
 package com.example.demo;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/** API pública: somente leitura. É o que o site consome. */
+/** API pública, somente leitura. O site não depende dela: lê o content.js gerado pelo ContentExporter. */
 @RestController
 @RequestMapping("/api")
 public class PortfolioController {
 
-	public record PortfolioResponse(Profile profile, List<Project> projects,
-			List<TimelineEntry> experience, List<TimelineEntry> education) {
-	}
+	private final PortfolioService service;
 
-	private final ProfileRepository profiles;
-	private final ProjectRepository projects;
-	private final TimelineRepository timeline;
-
-	public PortfolioController(ProfileRepository profiles, ProjectRepository projects, TimelineRepository timeline) {
-		this.profiles = profiles;
-		this.projects = projects;
-		this.timeline = timeline;
+	public PortfolioController(PortfolioService service) {
+		this.service = service;
 	}
 
 	@GetMapping("/portfolio")
-	public PortfolioResponse portfolio() {
-		Profile profile = profiles.findById(1L)
+	public PortfolioService.PortfolioResponse portfolio() {
+		return service.build()
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil ainda não cadastrado"));
-		return new PortfolioResponse(profile,
-				projects.findByPublishedTrueOrderByIdDesc(),
-				timeline.findByKindOrderByIdAsc(TimelineEntry.Kind.EXPERIENCE),
-				timeline.findByKindOrderByIdAsc(TimelineEntry.Kind.EDUCATION));
 	}
 }

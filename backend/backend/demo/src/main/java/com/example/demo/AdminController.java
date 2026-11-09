@@ -24,11 +24,20 @@ public class AdminController {
 	private final ProfileRepository profiles;
 	private final ProjectRepository projects;
 	private final TimelineRepository timeline;
+	private final ContentExporter exporter;
 
-	public AdminController(ProfileRepository profiles, ProjectRepository projects, TimelineRepository timeline) {
+	public AdminController(ProfileRepository profiles, ProjectRepository projects, TimelineRepository timeline,
+						   ContentExporter exporter) {
 		this.profiles = profiles;
 		this.projects = projects;
 		this.timeline = timeline;
+		this.exporter = exporter;
+	}
+
+	/** Depois de cada alteração, regenera o content.js que o site lê. */
+	private <T> T published(T saved) {
+		exporter.export();
+		return saved;
 	}
 
 	private static ResponseStatusException notFound() {
@@ -39,7 +48,7 @@ public class AdminController {
 	@PutMapping("/profile")
 	public Profile updateProfile(@Valid @RequestBody Profile profile) {
 		profile.id = 1L;
-		return profiles.save(profile);
+		return published(profiles.save(profile));
 	}
 
 	// Projetos
@@ -52,14 +61,14 @@ public class AdminController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public Project createProject(@Valid @RequestBody Project project) {
 		project.id = null;
-		return projects.save(project);
+		return published(projects.save(project));
 	}
 
 	@PutMapping("/projects/{id}")
 	public Project updateProject(@PathVariable Long id, @Valid @RequestBody Project project) {
 		if (!projects.existsById(id)) throw notFound();
 		project.id = id;
-		return projects.save(project);
+		return published(projects.save(project));
 	}
 
 	@DeleteMapping("/projects/{id}")
@@ -67,6 +76,7 @@ public class AdminController {
 	public void deleteProject(@PathVariable Long id) {
 		if (!projects.existsById(id)) throw notFound();
 		projects.deleteById(id);
+		exporter.export();
 	}
 
 	// Experiência e educação
@@ -79,14 +89,14 @@ public class AdminController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public TimelineEntry createTimeline(@Valid @RequestBody TimelineEntry entry) {
 		entry.id = null;
-		return timeline.save(entry);
+		return published(timeline.save(entry));
 	}
 
 	@PutMapping("/timeline/{id}")
 	public TimelineEntry updateTimeline(@PathVariable Long id, @Valid @RequestBody TimelineEntry entry) {
 		if (!timeline.existsById(id)) throw notFound();
 		entry.id = id;
-		return timeline.save(entry);
+		return published(timeline.save(entry));
 	}
 
 	@DeleteMapping("/timeline/{id}")
@@ -94,6 +104,14 @@ public class AdminController {
 	public void deleteTimeline(@PathVariable Long id) {
 		if (!timeline.existsById(id)) throw notFound();
 		timeline.deleteById(id);
+		exporter.export();
+	}
+
+	/** Regenera o content.js manualmente (útil depois de restaurar o banco). */
+	@PostMapping("/publish")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void publish() {
+		exporter.export();
 	}
 
 	@GetMapping("/profile")
