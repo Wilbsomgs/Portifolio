@@ -26,16 +26,17 @@ public class SecurityConfig {
 	@Bean
 	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
-			.csrf(AbstractHttpConfigurer::disable) // API stateless com HTTP Basic
-			.cors(Customizer.withDefaults())
-			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(a -> a
-				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-				.requestMatchers("/error").permitAll()
-				.requestMatchers(HttpMethod.GET, "/api/portfolio").permitAll()
-				.requestMatchers("/admin.html", "/api/admin/**").hasRole("ADMIN")
-				.anyRequest().denyAll())
-			.httpBasic(Customizer.withDefaults());
+				.csrf(AbstractHttpConfigurer::disable) // API stateless com HTTP Basic
+				.cors(Customizer.withDefaults())
+				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.authorizeHttpRequests(a -> a
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						.requestMatchers("/error").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/portfolio").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/curriculo").permitAll()
+						.requestMatchers("/admin.html", "/api/admin/**").hasRole("ADMIN")
+						.anyRequest().denyAll())
+				.httpBasic(Customizer.withDefaults());
 		return http.build();
 	}
 
@@ -46,7 +47,7 @@ public class SecurityConfig {
 
 	@Bean
 	UserDetailsService users(@Value("${admin.username}") String username,
-			@Value("${admin.password}") String password, PasswordEncoder encoder) {
+							 @Value("${admin.password}") String password, PasswordEncoder encoder) {
 		if (password.isBlank()) throw new IllegalStateException("Defina ADMIN_PASSWORD");
 		return new InMemoryUserDetailsManager(
 				User.withUsername(username).password(encoder.encode(password)).roles("ADMIN").build());
