@@ -4,7 +4,7 @@ window.PORTFOLIO = {
     "id" : 1,
     "email" : "willsuporte12@gmail.com",
     "githubUrl" : "https://github.com/Wilbsomgs",
-    "cvUrl" : null,
+    "cvUrl" : "http://localhost:8080/api/curriculo",
     "about" : "Construo aplicações web com código limpo, interfaces responsivas e foco em quem vai usar.",
     "roles" : [ "Desenvolvedor Full Stack", "Front-end com React", "Back-end com Spring Boot" ],
     "skills" : [ {
@@ -31,16 +31,16 @@ window.PORTFOLIO = {
     "id" : 3,
     "title" : "SS MAX",
     "status" : "Concluído",
-    "summary" : null,
+    "summary" : "Aplicação móvel desenvolvida em React Native e Expo para busca de vídeos musicais no YouTube, filtragem de metadados de transmissões ao vivo, organização de artistas e exibição de links diretos, com backend implantado em nuvem utilizando Docker e Render",
     "description" : "SS Max é uma aplicação web completa desenvolvida para busca e conversão de vídeos do YouTube em formato MP3. O projeto integra um front-end moderno e responsivo com um back-end robusto em Spring Boot, que gerencia a comunicação com as APIs do YouTube para extração de metadados, filtragem de conteúdos ao vivo e processamento de áudio com foco em alta performance e agilidade.",
-    "repoUrl" : null,
+    "repoUrl" : "https://github.com/Wilbsomgs/SS_MAX",
     "published" : true,
-    "tech" : [ "HTML5", "CSS3/SCSS", "Spring Boot", "JS", "API" ]
+    "tech" : [ "HTML5", "CSS3/SCSS", "Spring Boot", "JS", "Docker", "Render" ]
   }, {
     "id" : 2,
     "title" : "Projeto Jogo da Velha",
     "status" : "Concluído",
-    "summary" : null,
+    "summary" : "Aplicação clássica e interativa do tradicional jogo da velha (Tic-Tac-Toe), desenvolvida com foco em lógica de programação e manipulação de elementos web para partidas dinâmicas diretamente no navegador.",
     "description" : "Aplicação web interativa desenvolvida com foco em lógica de programação, manipulação de estado e estruturação de interface. O projeto implementa regras de validação de jogadas em tempo real, detecção automática de vitória ou empate e reset dinâmico de tabuleiro.",
     "repoUrl" : "https://github.com/carolina-diniz/jogo-da-velha",
     "published" : true,
@@ -55,7 +55,14 @@ window.PORTFOLIO = {
     "published" : true,
     "tech" : [ "React", "TypeScript", "SCSS", "Vite", "Spring Boot" ]
   } ],
-  "experience" : [ ],
+  "experience" : [ {
+    "id" : 3,
+    "kind" : "EXPERIENCE",
+    "title" : "Projeto Jogo da Velha",
+    "organization" : "Devlab - Iniciativa acadêmica",
+    "period" : "2024-2025",
+    "description" : "Co-fundador de uma iniciativa acadêmica que simula uma \"software house\". O objetivo é aplicar conhecimentos teóricos em produtos práticos, exercitando o ciclo completo de desenvolvimento de software, desde a concepção até o código"
+  } ],
   "education" : [ {
     "id" : 1,
     "kind" : "EDUCATION",
