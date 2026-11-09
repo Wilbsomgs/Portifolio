@@ -33,7 +33,7 @@ public class CurriculumController {
         this.downloadName = downloadName;
     }
 
-    @GetMapping("/curriculo")
+    @GetMapping("/Curriculo-Wilbsom-Goncalves-da-Silva")
     public ResponseEntity<Resource> download() {
         if (!cv.exists()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Currículo não encontrado");
         return ResponseEntity.ok()
