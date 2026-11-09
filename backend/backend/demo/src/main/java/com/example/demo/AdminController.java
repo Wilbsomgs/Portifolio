@@ -95,4 +95,9 @@ public class AdminController {
 		if (!timeline.existsById(id)) throw notFound();
 		timeline.deleteById(id);
 	}
+
+	@GetMapping("/profile")
+	public Profile getProfile() {
+		return profiles.findById(1L).orElseThrow(AdminController::notFound);
+	}
 }

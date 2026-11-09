@@ -33,7 +33,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/error").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/portfolio").permitAll()
-				.requestMatchers("/api/admin/**").hasRole("ADMIN")
+				.requestMatchers("/admin.html", "/api/admin/**").hasRole("ADMIN")
 				.anyRequest().denyAll())
 			.httpBasic(Customizer.withDefaults());
 		return http.build();

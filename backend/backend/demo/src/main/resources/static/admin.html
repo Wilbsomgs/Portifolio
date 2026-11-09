@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do portfólio</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7; --surface: #ffffff; --ink: #1b1f27; --muted: #5b6574;
+  --line: #d9dde4; --accent: #2b4fd8; --accent-ink: #ffffff;
+  --danger: #b3261e; --ok: #1b7a3e; --sel: #e8edff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --surface: #1d2128; --ink: #e8ebf0; --muted: #9aa4b4;
+    --line: #2d333d; --accent: #7f9bff; --accent-ink: #0e1530;
+    --danger: #ff8a80; --ok: #6fd49a; --sel: #26304f;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { background: var(--surface); border-bottom: 1px solid var(--line); padding: 14px 24px 0; }
+h1 { font-size: 18px; margin: 0 0 10px; font-weight: 650; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px; font: inherit; color: var(--muted); cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+#status { min-height: 24px; margin-bottom: 12px; font-weight: 500; }
+#status.ok { color: var(--ok); } #status.err { color: var(--danger); }
+.layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } main { padding: 16px; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.list { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.list button { text-align: left; background: none; border: 1px solid transparent; border-radius: 6px; padding: 8px 10px; font: inherit; color: var(--ink); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list button:hover { border-color: var(--line); }
+.list button[aria-current="true"] { background: var(--sel); border-color: var(--accent); }
+.empty { color: var(--muted); margin: 12px 0 0; }
+.fields { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.inline { flex-direction: row; align-items: center; gap: 8px; }
+.name { font-weight: 600; font-size: 13px; }
+.hint { color: var(--muted); font-size: 12px; }
+input[type=text], input[type=number], select, textarea { width: 100%; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+textarea { resize: vertical; }
+.skills { display: flex; flex-direction: column; gap: 8px; }
+.skill-row { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
+.btn { font: inherit; border-radius: 6px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.danger { color: var(--danger); border-color: var(--danger); margin-left: auto; }
+.btn:disabled { opacity: .6; cursor: wait; }
+.btn.block { width: 100%; }
+.toggle { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+.note { border-left: 3px solid var(--danger); padding: 4px 12px; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 13px; }
+h2 { font-size: 16px; margin: 0 0 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel do portfólio</h1>
+  <nav id="tabs" role="tablist"></nav>
+</header>
+<main>
+  <div id="status" role="status" aria-live="polite"></div>
+  <div id="view"></div>
+</main>
+
+<script>
+const API = '/api/admin';
+
+// Cada seção aponta para um endpoint do AdminController.
+const SECTIONS = {
+  profile:  { label: 'Informações pessoais',   single: true, path: '/profile' },
+  projects: { label: 'Projetos',               path: '/projects', noun: 'projeto' },
+  timeline: { label: 'Experiência e educação', path: '/timeline', noun: 'entrada' }
+};
+const TITLE_KEYS = ['title', 'titulo', 'name', 'nome', 'role', 'cargo', 'company', 'empresa', 'institution', 'instituicao'];
+
+const state = { section: 'profile', items: [], selected: null }; // selected: id | 'new' | null
+
+/* ---------- utilidades ---------- */
+function h(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) e.append(kid);
+  return e;
+}
+const humanize = k => { const s = k.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' '); return s[0].toUpperCase() + s.slice(1); };
+let statusTimer;
+function say(msg, type = '') {
+  const s = document.getElementById('status');
+  s.textContent = msg; s.className = type;
+  clearTimeout(statusTimer);
+  if (type === 'ok') statusTimer = setTimeout(() => { s.textContent = ''; }, 4000);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(API + path, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+  if (res.status === 401) throw new Error('Sessão não autenticada. Recarregue a página e faça login.');
+  if (res.status === 403) throw new Error('Acesso negado (403). Se for ao salvar, o CSRF pode estar ativo no SecurityConfig.');
+  if (!res.ok) {
+    let detail = '';
+    try { const j = await res.json(); detail = j.message || j.detail || j.error || ''; } catch (_) {}
+    const err = new Error(`Erro ${res.status}${detail ? ': ' + detail : ''}`);
+    err.status = res.status; throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+/* ---------- formulário gerado a partir dos campos do objeto ---------- */
+function kindOf(v) {
+  if (typeof v === 'boolean') return 'bool';
+  if (typeof v === 'number') return 'number';
+  if (Array.isArray(v)) return v.every(x => typeof x === 'string') ? 'list' : 'json';
+  if (v && typeof v === 'object') return 'json';
+  return 'text';
+}
+// Campos com tratamento próprio: kind (enum da timeline) e skills (lista de {name, level}).
+const ENUMS = { kind: { EXPERIENCE: 'Experiência', EDUCATION: 'Educação' } };
+const fieldKind = (key, v) => {
+  if (ENUMS[key] && (v == null || typeof v === 'string')) return 'enum';
+  if (key === 'skills' && Array.isArray(v) && v.every(x => x && typeof x === 'object')) return 'skills';
+  return kindOf(v);
+};
+const emptyFor = (kind, key) => kind === 'enum' ? Object.keys(ENUMS[key])[0]
+  : ({ bool: false, number: null, list: [], json: {}, text: '', skills: [] })[kind];
+
+function skillsEditor(list) {
+  const box = h('div', { class: 'skills' });
+  const rows = [];
+  const addBtn = h('button', { class: 'btn', type: 'button', onclick: () => addRow() }, 'Adicionar skill');
+  function addRow(s = { name: '', level: 50 }) {
+    const name = h('input', { type: 'text', placeholder: 'Tecnologia', 'aria-label': 'Nome da skill' }); name.value = s.name ?? '';
+    const level = h('input', { type: 'number', min: 0, max: 100, 'aria-label': 'Nível de 0 a 100' }); level.value = s.level ?? 50;
+    const row = { orig: s, name, level };
+    const line = h('div', { class: 'skill-row' }, name, level,
+      h('button', { class: 'btn', type: 'button', onclick: () => { rows.splice(rows.indexOf(row), 1); line.remove(); } }, 'Remover'));
+    rows.push(row); box.insertBefore(line, addBtn);
+  }
+  box.append(addBtn);
+  list.forEach(s => addRow(s));
+  return { el: box, read: () => rows.filter(r => r.name.value.trim())
+    .map(r => ({ ...r.orig, name: r.name.value.trim(), level: Number(r.level.value) || 0 })) };
+}
+
+function buildForm(obj, kinds = {}) {
+  const box = h('div', { class: 'fields' });
+  const readers = {};
+  for (const key of Object.keys(obj)) {
+    if (key === 'id') continue;
+    const val = obj[key], kind = kinds[key] || fieldKind(key, val);
+    let input, ed;
+    if (kind === 'enum') {
+      input = h('select', {}, Object.entries(ENUMS[key]).map(([v, l]) => h('option', { value: v }, l)));
+      input.value = val ?? Object.keys(ENUMS[key])[0];
+    }
+    else if (kind === 'skills') { ed = skillsEditor(val || []); input = ed.el; }
+    else if (kind === 'bool') { input = h('input', { type: 'checkbox' }); input.checked = !!val; }
+    else if (kind === 'number') { input = h('input', { type: 'number', step: 'any' }); input.value = val ?? ''; }
+    else if (kind === 'list') { input = h('textarea', { rows: Math.max(3, (val || []).length + 1) }); input.value = (val || []).join('\n'); }
+    else if (kind === 'json') { input = h('textarea', { rows: 6, class: 'mono' }); input.value = JSON.stringify(val ?? null, null, 2); }
+    else {
+      const long = String(val ?? '').length > 80 || /desc|bio|texto|text|resumo|sobre|apresent|detal/i.test(key);
+      input = h(long ? 'textarea' : 'input', long ? { rows: 5 } : { type: 'text' });
+      input.value = val ?? '';
+    }
+    readers[key] = () => {
+      if (kind === 'enum') return input.value;
+      if (kind === 'skills') return ed.read();
+      if (kind === 'bool') return input.checked;
+      if (kind === 'number') return input.value === '' ? null : Number(input.value);
+      if (kind === 'list') return input.value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (kind === 'json') { try { return JSON.parse(input.value); } catch (_) { throw new Error(`JSON inválido no campo "${humanize(key)}".`); } }
+      return input.value.trim() === '' ? null : input.value;
+    };
+    box.append(h(kind === 'skills' ? 'div' : 'label', { class: 'field' + (kind === 'bool' ? ' inline' : '') },
+      h('span', { class: 'name' }, humanize(key)), input,
+      kind === 'list' ? h('span', { class: 'hint' }, 'Um item por linha') : null));
+  }
+  const read = () => { const out = {}; for (const k in readers) out[k] = readers[k](); return out; };
+  return { el: box, read, empty: Object.keys(readers).length === 0 };
+}
+
+/* ---------- editor (formulário + modo JSON) ---------- */
+function buildEditor(sec, data, kinds, onSaved, onDeleted) {
+  const isNew = state.selected === 'new';
+  const root = h('div', { class: 'panel' });
+  let form = buildForm(data, kinds);
+  let jsonMode = form.empty;
+  const holder = h('div');
+  const jsonBox = h('textarea', { rows: 14, class: 'mono' });
+  const toggle = h('input', { type: 'checkbox', id: 'jsonmode' });
+
+  const draw = () => {
+    holder.replaceChildren(jsonMode ? jsonBox : form.el);
+    toggle.checked = jsonMode;
+  };
+  toggle.addEventListener('change', () => {
+    try {
+      if (toggle.checked) {
+        jsonBox.value = JSON.stringify({ ...(data.id != null ? { id: data.id } : {}), ...form.read() }, null, 2);
+      } else {
+        const parsed = JSON.parse(jsonBox.value);
+        data = parsed; form = buildForm(parsed, Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, fieldKind(k, v)])));
+      }
+      jsonMode = toggle.checked; say(''); draw();
+    } catch (e) { toggle.checked = jsonMode; say(e.message, 'err'); }
+  });
+  if (jsonMode) jsonBox.value = '{\n  \n}';
+
+  const collect = () => (jsonMode ? JSON.parse(jsonBox.value) : form.read());
+
+  const save = h('button', { class: 'btn primary', type: 'button' }, 'Salvar alterações');
+  save.addEventListener('click', async () => {
+    try {
+      const body = collect();
+      save.disabled = true; say('Salvando…');
+      let saved;
+      if (sec.single) saved = await api('PUT', sec.path, body);
+      else if (isNew) saved = await api('POST', sec.path, body);
+      else saved = await api('PUT', `${sec.path}/${state.selected}`, body);
+      say('Alterações salvas.', 'ok');
+      onSaved(saved);
+    } catch (e) { say(e.message, 'err'); }
+    finally { save.disabled = false; }
+  });
+
+  const actions = h('div', { class: 'actions' }, save);
+  if (!sec.single && !isNew) {
+    const del = h('button', { class: 'btn danger', type: 'button' }, `Remover ${sec.noun}`);
+    del.addEventListener('click', async () => {
+      if (!confirm(`Remover este ${sec.noun}? Essa ação não pode ser desfeita.`)) return;
+      try { await api('DELETE', `${sec.path}/${state.selected}`); say(`${sec.noun[0].toUpperCase() + sec.noun.slice(1)} removido.`, 'ok'); onDeleted(); }
+      catch (e) { say(e.message, 'err'); }
+    });
+    actions.append(del);
+  }
+
+  root.append(
+    h('h2', {}, sec.single ? sec.label : (isNew ? `Novo ${sec.noun}` : `Editar ${sec.noun}`)),
+    h('label', { class: 'toggle' }, toggle, 'Editar como JSON (para adicionar ou remover campos)'),
+    holder, actions
+  );
+  draw();
+  return root;
+}
+
+/* ---------- telas ---------- */
+const itemLabel = it => {
+  for (const k of TITLE_KEYS) if (typeof it[k] === 'string' && it[k].trim()) return it[k];
+  const first = Object.entries(it).find(([k, v]) => k !== 'id' && typeof v === 'string' && v.trim());
+  return first ? first[1] : `#${it.id}`;
+};
+
+async function showSection() {
+  const sec = SECTIONS[state.section], view = document.getElementById('view');
+  view.replaceChildren(h('p', { class: 'empty' }, 'Carregando…'));
+  try {
+    if (sec.single) return await showProfile(sec, view);
+    state.items = await api('GET', sec.path);
+    renderList(sec, view);
+  } catch (e) { say(e.message, 'err'); view.replaceChildren(); }
+}
+
+async function showProfile(sec, view) {
+  let profile;
+  try { profile = await api('GET', sec.path); }
+  catch (e) {
+    if (e.status === 405 || e.status === 404) {
+      view.replaceChildren(h('div', { class: 'panel' },
+        h('p', { class: 'note' }, 'O AdminController ainda não tem um endpoint para ler o perfil. Adicione este método a ele:'),
+        h('pre', {}, '@GetMapping("/profile")\npublic Profile getProfile() {\n\treturn profiles.findById(1L).orElseThrow(AdminController::notFound);\n}')));
+      return;
+    }
+    throw e;
+  }
+  view.replaceChildren(buildEditor(sec, profile, {}, saved => showProfile(sec, view), () => {}));
+}
+
+function renderList(sec, view) {
+  const list = h('div', { class: 'list' });
+  if (!state.items.length) list.append(h('p', { class: 'empty' }, `Nenhum ${sec.noun} cadastrado.`));
+  for (const it of state.items) {
+    list.append(h('button', {
+      type: 'button', 'aria-current': String(state.selected === it.id),
+      onclick: () => { state.selected = it.id; renderList(sec, view); }
+    }, itemLabel(it)));
+  }
+  const add = h('button', { class: 'btn primary block', type: 'button',
+    onclick: () => { state.selected = 'new'; renderList(sec, view); } }, `Adicionar ${sec.noun}`);
+  const side = h('aside', { class: 'panel' }, add, list);
+
+  let editor = h('div', { class: 'panel' }, h('p', { class: 'empty' }, `Selecione um ${sec.noun} na lista ou adicione um novo.`));
+  if (state.selected === 'new') {
+    const sample = state.items[0] || {};
+    const kinds = {}, data = {};
+    for (const k of Object.keys(sample)) { if (k === 'id') continue; kinds[k] = fieldKind(k, sample[k]); data[k] = emptyFor(kinds[k], k); }
+    editor = buildEditor(sec, data, kinds, saved => reload(saved && saved.id), () => {});
+  } else if (state.selected != null) {
+    const item = state.items.find(i => i.id === state.selected);
+    if (item) editor = buildEditor(sec, structuredClone(item), {}, saved => reload(saved && saved.id), () => { state.selected = null; reload(); });
+  }
+  view.replaceChildren(h('div', { class: 'layout' }, side, editor));
+}
+
+async function reload(selectId = null) {
+  const sec = SECTIONS[state.section];
+  state.items = await api('GET', sec.path);
+  state.selected = selectId;
+  renderList(sec, document.getElementById('view'));
+}
+
+/* ---------- abas ---------- */
+const tabs = document.getElementById('tabs');
+for (const [key, sec] of Object.entries(SECTIONS)) {
+  tabs.append(h('button', {
+    role: 'tab', type: 'button', 'data-key': key, 'aria-selected': String(key === state.section),
+    onclick: () => {
+      state.section = key; state.selected = null; say('');
+      tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.key === key)));
+      showSection();
+    }
+  }, sec.label));
+}
+showSection();
+</script>
+</body>
+</html>
